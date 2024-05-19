@@ -12,7 +12,7 @@ const path = require("path");
 const cors = require("cors");
 var request = require('request-promise'); 
 const db_url =
-  "mongodb+srv://rohitkoner5:roko@cluster0.2uqgbqg.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+  "";
 mongoose.set("strictQuery", true);
 mongoose
   .connect(db_url)
