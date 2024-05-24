@@ -18,7 +18,7 @@ const jwtSecret = "sdffgdfgdfgdfgrty12^%";
 const jwt = require("jsonwebtoken");
 var request = require("request-promise");
 const db_url =
-  "mongodb+srv://rohitkoner5:roko@cluster0.2uqgbqg.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+  "";
 mongoose.set("strictQuery", true);
 mongoose
   .connect(db_url)
