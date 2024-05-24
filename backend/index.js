@@ -5,6 +5,7 @@ const cookieParser = require("cookie-parser");
 const multer = require("multer");
 const { storage, cloudinary } = require("./cloudinary");
 const uploadMiddleware = multer({ storage });
+const { isLoggedIn }=require("./middleware");
 //const fileUpload = require("express-fileupload");
 const Store = require("./models/store");
 const User = require("./models/User");
@@ -17,14 +18,12 @@ const jwtSecret = "sdffgdfgdfgdfgrty12^%";
 const jwt = require("jsonwebtoken");
 var request = require("request-promise");
 const db_url =
-  "";
+  "mongodb+srv://rohitkoner5:roko@cluster0.2uqgbqg.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 mongoose.set("strictQuery", true);
 mongoose
   .connect(db_url)
   .then(() => console.log("database connected"))
   .catch((err) => console.log(err));
-
-app.use(cookieParser());
 
 // directories
 app.use(
@@ -35,26 +34,24 @@ app.use(
 app.use("/uploads", express.static(__dirname + "/uploads"));
 app.use(express.json({ limit: "50mb" }));
 
-app.use(
-  cors({
-    credentials: true,
-    origin: process.env.CLIENT_URL,
-  })
-);
+app.use(cors({ credentials: true, origin: "http://localhost:3000" }));
+app.use(cookieParser());
+
 
 app.get("/", (req, res) => {
   res.json("server running");
 });
 
 app.post(
-  "/senddata",
+  "/senddata",isLoggedIn,
   uploadMiddleware.array("photos", 100),
   async (req, res) => {
+    // console.log(req.files);
     var imageFiles = req.files.map((file) => ({
       url: file.path,
       filename: file.filename,
     }));
- // this is done for local cached data stored already predicted for same image
+    // this is done for local cached data stored already predicted for same image
     const images = await Store.find({});
     let flag = 0;
     let pred_class = "";
@@ -80,18 +77,17 @@ app.post(
       } else {
         flag = 1;
         pred_class = img.pred_class;
-        user_image=img.user_image;
-        prediction=img.prediction;
+        user_image = img.user_image;
+        prediction = img.prediction;
         break;
       }
     }
     //if same images are passed and already found in local cache
     if (flag === 1) {
-      return res.status(200).json({user_image,prediction,pred_class});
-      
+      return res.status(200).json({ user_image, prediction, pred_class });
     }
     // sending the req to flask server to get model value predicted
-     else {
+    else {
       var options = {
         method: "POST",
         uri: "http://127.0.0.1:8000/predict",
@@ -112,27 +108,26 @@ app.post(
         user_image: imageFiles[0].url,
         imagefilename: imageFiles[0].filename,
         pred_class: returndata.pred_class,
-        prediction:returndata.prediction[0]
+        prediction: returndata.prediction[0],
       });
-     // console.log(returndata.prediction[0]);
+      // console.log(returndata.prediction[0]);
 
-
-    return res.status(200).json(returndata);
+      return res.status(200).json(returndata);
     }
   }
 );
 
 //
 app.post("/register", async (req, res) => {
-  const { firstname, lastname, email, phone ,password} = req.body;
+  const { firstname, lastname, email, phone, password, file } = req.body;
   try {
-    
     const createdUser = await User.create({
       firstname,
       lastname,
+      file,
       email,
       phonenumber: phone,
-      password: bcrypt.hashSync(password, salt)
+      password: bcrypt.hashSync(password, salt),
     });
     res.status(200).json(createdUser);
   } catch (error) {
@@ -142,7 +137,7 @@ app.post("/register", async (req, res) => {
 
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
- 
+
   try {
     const userDoc = await User.findOne({ email });
 
@@ -154,8 +149,12 @@ app.post("/login", async (req, res) => {
           jwtSecret,
           {},
           (err, token) => {
-            if (err) throw err;
-            res.cookie("token", token,{sameSite:'none', secure:true}).json(userDoc);
+            if (err) {
+              throw err;
+            }
+            res
+              .cookie("token", token, { sameSite: "none", secure: true })
+              .json(userDoc);
           }
         );
       } else {
@@ -171,7 +170,7 @@ app.post("/login", async (req, res) => {
 
 app.get("/profile", (req, res) => {
   const { token } = req.cookies;
- // console.log(token);
+  // console.log(token);
   if (token) {
     jwt.verify(token, jwtSecret, {}, async (err, user) => {
       if (err) throw err;
@@ -184,11 +183,21 @@ app.get("/profile", (req, res) => {
 });
 
 app.post("/logout", (req, res) => {
-  res.cookie("token", "",{sameSite:'none', secure:true}).json(true);
+  res.cookie("token", "", { sameSite: "none", secure: true }).json(true);
 });
 
+app.get("/getuserdetails/:id",isLoggedIn, async (req, res) => {
+  const { id } = req.params;
 
+  try {
+    //console.log(id);
+    const user = await User.findOne({ _id: id });
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(400).json({ error });
+  }
+});
 
-app.listen(3000, () => {
-  console.log("listening on port 3000");
+app.listen(5000, () => {
+  console.log("listening on port 5000");
 });
